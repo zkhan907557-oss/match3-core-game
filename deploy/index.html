@@ -3,142 +3,110 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Match-3 Core Engine Playtest</title>
+  <title>MyGarden Match-3</title>
   <style>
     :root {
-      --bg: #141820;
-      --panel: #202633;
-      --text: #f5f7fb;
-      --muted: #aeb7c7;
-      --accent: #64d2ff;
-      --cell: 58px;
+      --bg: #10141b;
+      --panel: #1e2632;
+      --panel2: #273140;
+      --line: rgba(255,255,255,0.12);
+      --text: #f7f8fb;
+      --muted: #aeb8c8;
+      --accent: #70e1c8;
+      --danger: #ff6b7a;
+      --gold: #ffd166;
+      --cell: 56px;
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: radial-gradient(circle at top, #283145 0, var(--bg) 55%);
+      background: radial-gradient(circle at top left, #284353 0, var(--bg) 46%);
       color: var(--text);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-
     main {
-      width: min(94vw, 620px);
+      width: min(1180px, 96vw);
+      margin: 0 auto;
+      padding: 18px 0;
       display: grid;
+      grid-template-columns: minmax(320px, 540px) minmax(280px, 1fr);
       gap: 16px;
+      align-items: start;
     }
-
+    header, .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(30,38,50,0.92);
+      box-shadow: 0 18px 48px rgba(0,0,0,0.28);
+    }
     header {
+      grid-column: 1 / -1;
+      padding: 14px;
       display: flex;
-      align-items: center;
       justify-content: space-between;
       gap: 12px;
+      align-items: center;
     }
-
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: 0;
-    }
-
-    .stats {
+    h1, h2 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: clamp(22px, 3vw, 34px); }
+    h2 { font-size: 16px; margin-bottom: 10px; }
+    .tag { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .hud {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
       justify-content: flex-end;
     }
-
-    .stat {
-      min-width: 92px;
-      padding: 8px 10px;
-      border: 1px solid rgba(255,255,255,0.12);
+    .pill, .stat {
+      border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.06);
+      padding: 8px 10px;
+      min-width: 82px;
       text-align: center;
     }
-
-    .stat b {
-      display: block;
-      font-size: 18px;
-    }
-
-    .stat span {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
+    .pill b, .stat b { display: block; font-size: 18px; }
+    .pill span, .stat span { color: var(--muted); font-size: 12px; }
+    .game-panel { padding: 14px; }
     #board {
       width: calc(var(--cell) * 8 + 14px);
       max-width: 100%;
       aspect-ratio: 1;
+      margin: 0 auto;
       display: grid;
       grid-template-columns: repeat(8, 1fr);
       gap: 2px;
       padding: 7px;
       border-radius: 8px;
-      background: #0e1219;
-      box-shadow: 0 22px 55px rgba(0,0,0,0.35);
+      background: #0b0f15;
       touch-action: manipulation;
-      margin: 0 auto;
     }
-
     .tile {
       position: relative;
       border: 0;
       border-radius: 8px;
-      cursor: pointer;
-      box-shadow: inset 0 -7px 0 rgba(0,0,0,0.2), inset 0 3px 0 rgba(255,255,255,0.23);
-      transition: transform 120ms ease, outline-color 120ms ease, opacity 180ms ease;
       min-width: 0;
+      cursor: pointer;
+      box-shadow: inset 0 -7px 0 rgba(0,0,0,0.22), inset 0 3px 0 rgba(255,255,255,0.24);
+      transition: transform 120ms ease, opacity 170ms ease, outline-color 120ms ease;
     }
-
-    .tile:hover {
-      transform: translateY(-1px);
-    }
-
-    .tile.selected {
-      outline: 4px solid var(--accent);
-      outline-offset: -4px;
-      transform: scale(0.94);
-    }
-
-    .tile.clearing {
-      opacity: 0;
-      transform: scale(0.2) rotate(12deg);
-    }
-
+    .tile:hover { transform: translateY(-1px); }
+    .tile.selected { outline: 4px solid var(--accent); outline-offset: -4px; transform: scale(0.94); }
+    .tile.clearing { opacity: 0; transform: scale(0.2) rotate(10deg); }
     .tile::after {
       position: absolute;
       inset: 0;
       display: grid;
       place-items: center;
-      color: rgba(255,255,255,0.92);
+      font-size: clamp(17px, 5vw, 28px);
       font-weight: 900;
-      font-size: clamp(18px, 5vw, 28px);
+      color: rgba(255,255,255,0.94);
       text-shadow: 0 2px 4px rgba(0,0,0,0.35);
     }
-
-    .bomb::after {
-      content: "B";
-    }
-
-    .rainbow::after {
-      content: "R";
-      color: #141820;
-      text-shadow: none;
-    }
-
-    .dynamite::after {
-      content: "+";
-    }
-
+    .bomb::after { content: "B"; }
+    .rainbow::after { content: "R"; color: #10141b; text-shadow: none; }
+    .dynamite::after { content: "+"; }
     .red { background: #e84a5f; }
     .blue { background: #2787d7; }
     .green { background: #2eb872; }
@@ -146,110 +114,185 @@
     .purple { background: #8e5bd9; }
     .orange { background: #f28b30; }
     .rainbow { background: linear-gradient(135deg, #e84a5f, #f6c85f, #2eb872, #2787d7, #8e5bd9); }
-
-    footer {
+    .side { display: grid; gap: 12px; }
+    .panel { padding: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .wide { grid-column: 1 / -1; }
+    .row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      border-radius: 8px;
-      background: var(--panel);
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
       color: var(--muted);
     }
-
-    button.reset {
+    .row:last-child { border-bottom: 0; }
+    .row b { color: var(--text); }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #121821;
+      color: var(--text);
+      padding: 11px 12px;
+      outline: none;
+    }
+    button.action {
+      width: 100%;
       border: 0;
       border-radius: 8px;
-      padding: 10px 14px;
+      padding: 11px 12px;
       background: var(--accent);
-      color: #071017;
+      color: #07120f;
       font-weight: 800;
       cursor: pointer;
     }
-
+    button.secondary { background: #364254; color: var(--text); }
+    button.danger { background: var(--danger); color: #21080b; }
+    button.action:disabled { opacity: 0.55; cursor: not-allowed; }
     #message {
-      min-height: 20px;
-      font-weight: 700;
-      color: var(--text);
+      min-height: 24px;
+      padding: 10px 0 0;
+      color: var(--gold);
+      font-weight: 800;
+      text-align: center;
     }
-
+    ol { margin: 0; padding-left: 22px; color: var(--muted); }
+    li { margin: 7px 0; }
+    code { color: var(--accent); }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      header { align-items: flex-start; flex-direction: column; }
+      .hud { justify-content: flex-start; }
+    }
     @media (max-width: 560px) {
-      :root {
-        --cell: calc((94vw - 28px) / 8);
-      }
-
-      header {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .stats {
-        justify-content: flex-start;
-      }
+      :root { --cell: calc((96vw - 42px) / 8); }
+      .grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <main>
     <header>
-      <h1>Match-3 Core Playtest</h1>
-      <div class="stats">
-        <div class="stat"><b id="score">0</b><span>Score</span></div>
-        <div class="stat"><b id="moves">25</b><span>Moves</span></div>
-        <div class="stat"><b id="chain">0</b><span>Chain</span></div>
+      <div>
+        <h1>MyGarden Match-3</h1>
+        <div class="tag">Playable game with save, economy, lives, and optional backend sync</div>
+      </div>
+      <div class="hud">
+        <div class="pill"><b id="stars">0</b><span>Stars</span></div>
+        <div class="pill"><b id="coins">0</b><span>Coins</span></div>
+        <div class="pill"><b id="lives">5</b><span>Lives</span></div>
       </div>
     </header>
-    <section id="board" aria-label="Match-3 board"></section>
-    <footer>
-      <div id="message">Reach 10,000 before moves run out.</div>
-      <button class="reset" type="button" id="reset">New Game</button>
-    </footer>
+
+    <section class="panel game-panel">
+      <div class="hud" style="justify-content:center;margin-bottom:12px">
+        <div class="stat"><b id="score">0</b><span>Score</span></div>
+        <div class="stat"><b id="moves">25</b><span>Moves</span></div>
+        <div class="stat"><b id="target">10000</b><span>Target</span></div>
+        <div class="stat"><b id="chain">0</b><span>Chain</span></div>
+      </div>
+      <section id="board" aria-label="Match-3 board"></section>
+      <div id="message">Match 3 tiles. Win stars and coins.</div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h2>Player</h2>
+        <div class="grid">
+          <input id="playerName" maxlength="18" aria-label="Player name">
+          <button class="action" id="saveName" type="button">Save Name</button>
+          <button class="action secondary" id="newGame" type="button">New Level</button>
+          <button class="action danger" id="buyMoves" type="button">+5 Moves 900 Coins</button>
+        </div>
+        <div class="row"><span>Backend</span><b id="syncStatus">Local only</b></div>
+        <div class="row"><span>Best Score</span><b id="bestScore">0</b></div>
+        <div class="row"><span>Level</span><b id="level">1</b></div>
+        <div class="row"><span>Next Life</span><b id="lifeTimer">Full</b></div>
+      </section>
+
+      <section class="panel">
+        <h2>Garden Tasks</h2>
+        <div class="row"><span>Fix fountain</span><b>10 Stars</b></div>
+        <div class="row"><span>Plant flowers</span><b>15 Stars</b></div>
+        <div class="row"><span>Repair gazebo</span><b>25 Stars</b></div>
+        <button class="action" id="renovate" type="button">Spend Stars on Next Task</button>
+      </section>
+
+      <section class="panel">
+        <h2>Leaderboard</h2>
+        <ol id="leaderboard"></ol>
+      </section>
+    </aside>
   </main>
 
   <script>
+    const API_BASE = localStorage.getItem("match3ApiBase") || "";
     const size = 8;
     const colors = ["red", "blue", "green", "yellow", "purple", "orange"];
     const kinds = ["normal", "bomb", "rainbow", "dynamite"];
+    const targetScore = 10000;
+    const moveLimit = 25;
+    const maxLives = 5;
+    const lifeRefillMs = 30 * 60 * 1000;
+    const storageKey = "mygarden_match3_save_v2";
     const boardEl = document.querySelector("#board");
-    const scoreEl = document.querySelector("#score");
-    const movesEl = document.querySelector("#moves");
-    const chainEl = document.querySelector("#chain");
-    const messageEl = document.querySelector("#message");
-    const resetEl = document.querySelector("#reset");
+    const ui = Object.fromEntries(["score","moves","target","chain","stars","coins","lives","message","playerName","saveName","newGame","buyMoves","syncStatus","bestScore","level","lifeTimer","renovate","leaderboard"].map(id => [id, document.querySelector("#" + id)]));
 
     let board = [];
     let selected = null;
-    let score = 0;
-    let moves = 25;
     let busy = false;
     let gameOver = false;
+    let score = 0;
+    let moves = moveLimit;
+    let save = loadSave();
+
+    function loadSave() {
+      const fallback = {
+        playerId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        playerName: "Player",
+        stars: 0,
+        coins: 1200,
+        lives: maxLives,
+        level: 1,
+        bestScore: 0,
+        completedTasks: 0,
+        lastLifeAt: Date.now()
+      };
+      try { return { ...fallback, ...JSON.parse(localStorage.getItem(storageKey) || "{}") }; }
+      catch { return fallback; }
+    }
+
+    function persist() {
+      localStorage.setItem(storageKey, JSON.stringify(save));
+      syncProfile();
+    }
 
     function randomTile(avoidX = -1, avoidY = -1) {
       let allowed = [...colors];
-      if (avoidX >= 2 && board[avoidY]?.[avoidX - 1]?.color === board[avoidY]?.[avoidX - 2]?.color) {
-        allowed = allowed.filter(color => color !== board[avoidY][avoidX - 1].color);
-      }
-      if (avoidY >= 2 && board[avoidY - 1]?.[avoidX]?.color === board[avoidY - 2]?.[avoidX]?.color) {
-        allowed = allowed.filter(color => color !== board[avoidY - 1][avoidX].color);
-      }
-      const kindRoll = Math.random();
-      const kind = kindRoll < 0.025 ? kinds[1 + Math.floor(Math.random() * 3)] : "normal";
+      if (avoidX >= 2 && board[avoidY]?.[avoidX - 1]?.color === board[avoidY]?.[avoidX - 2]?.color) allowed = allowed.filter(color => color !== board[avoidY][avoidX - 1].color);
+      if (avoidY >= 2 && board[avoidY - 1]?.[avoidX]?.color === board[avoidY - 2]?.[avoidX]?.color) allowed = allowed.filter(color => color !== board[avoidY - 1][avoidX].color);
+      const kind = Math.random() < 0.025 ? kinds[1 + Math.floor(Math.random() * 3)] : "normal";
       return { color: allowed[Math.floor(Math.random() * allowed.length)], kind };
     }
 
     function newGame() {
+      refillLives();
+      if (save.lives <= 0) {
+        setMessage("No lives. Wait for refill or use coins later.");
+        return;
+      }
       board = [];
       selected = null;
       score = 0;
-      moves = 25;
+      moves = moveLimit;
       busy = false;
       gameOver = false;
       for (let y = 0; y < size; y++) {
         board[y] = [];
         for (let x = 0; x < size; x++) board[y][x] = randomTile(x, y);
       }
-      messageEl.textContent = "Reach 10,000 before moves run out.";
+      setMessage("Match 3 tiles. Win stars and coins.");
       updateHud();
       render();
     }
@@ -264,7 +307,7 @@
           button.className = `tile ${tile.color} ${tile.kind}`;
           if (selected?.x === x && selected?.y === y) button.classList.add("selected");
           if (clearing.has(key(x, y))) button.classList.add("clearing");
-          button.setAttribute("aria-label", `${tile.kind} ${tile.color} tile ${x},${y}`);
+          button.setAttribute("aria-label", `${tile.kind} ${tile.color} tile`);
           button.addEventListener("click", () => pick(x, y));
           boardEl.appendChild(button);
         }
@@ -272,22 +315,10 @@
     }
 
     async function pick(x, y) {
-      if (busy || gameOver) return;
-      if (!selected) {
-        selected = { x, y };
-        render();
-        return;
-      }
-      if (selected.x === x && selected.y === y) {
-        selected = null;
-        render();
-        return;
-      }
-      if (Math.abs(selected.x - x) + Math.abs(selected.y - y) !== 1) {
-        selected = { x, y };
-        render();
-        return;
-      }
+      if (busy || gameOver || !board[y]?.[x]) return;
+      if (!selected) { selected = { x, y }; render(); return; }
+      if (selected.x === x && selected.y === y) { selected = null; render(); return; }
+      if (Math.abs(selected.x - x) + Math.abs(selected.y - y) !== 1) { selected = { x, y }; render(); return; }
       await swapAndResolve(selected, { x, y });
       selected = null;
       render();
@@ -306,14 +337,9 @@
       }
       moves--;
       await resolve(matches);
+      if (score >= targetScore) winLevel();
+      else if (moves <= 0) failLevel();
       updateHud();
-      if (score >= 10000) {
-        gameOver = true;
-        messageEl.textContent = "You win!";
-      } else if (moves <= 0) {
-        gameOver = true;
-        messageEl.textContent = "Out of moves.";
-      }
       busy = false;
     }
 
@@ -321,19 +347,42 @@
       let chain = 0;
       while (matches.size > 0) {
         chain++;
-        chainEl.textContent = chain;
+        ui.chain.textContent = chain;
         const expanded = expandPowerUps(matches);
         score += expanded.size * 100 * chain;
         render(expanded);
-        await delay(180);
+        await delay(170);
         clearTiles(expanded);
         collapse();
         fill();
         updateHud();
         render();
-        await delay(120);
+        await delay(100);
         matches = findMatches();
       }
+    }
+
+    function winLevel() {
+      gameOver = true;
+      const starsEarned = Math.min(20, 5 + Math.floor(moves / 2));
+      const coinsEarned = 50 + moves * 5;
+      save.stars += starsEarned;
+      save.coins += coinsEarned;
+      save.level++;
+      save.bestScore = Math.max(save.bestScore, score);
+      setMessage(`Level complete! +${starsEarned} stars, +${coinsEarned} coins.`);
+      persist();
+      submitScore();
+    }
+
+    function failLevel() {
+      gameOver = true;
+      save.lives = Math.max(0, save.lives - 1);
+      save.lastLifeAt = Date.now();
+      save.bestScore = Math.max(save.bestScore, score);
+      setMessage("Level failed. One life used.");
+      persist();
+      submitScore();
     }
 
     function swap(a, b) {
@@ -346,8 +395,7 @@
       for (let y = 0; y < size; y++) {
         let start = 0;
         for (let x = 1; x <= size; x++) {
-          const same = x < size && canMatch(board[y][start], board[y][x]);
-          if (same) continue;
+          if (x < size && canMatch(board[y][start], board[y][x])) continue;
           if (x - start >= 3) for (let i = start; i < x; i++) matches.add(key(i, y));
           start = x;
         }
@@ -355,8 +403,7 @@
       for (let x = 0; x < size; x++) {
         let start = 0;
         for (let y = 1; y <= size; y++) {
-          const same = y < size && canMatch(board[start][x], board[y][x]);
-          if (same) continue;
+          if (y < size && canMatch(board[start][x], board[y][x])) continue;
           if (y - start >= 3) for (let i = start; i < y; i++) matches.add(key(x, i));
           start = y;
         }
@@ -364,25 +411,16 @@
       return matches;
     }
 
-    function canMatch(a, b) {
-      return a && b && a.kind !== "rainbow" && b.kind !== "rainbow" && a.color === b.color;
-    }
-
-    function resolvePowerSwap(a, b) {
-      return union(powerArea(a, board[a.y][a.x], board[b.y][b.x]), powerArea(b, board[b.y][b.x], board[a.y][a.x]));
-    }
+    function canMatch(a, b) { return a && b && a.kind !== "rainbow" && b.kind !== "rainbow" && a.color === b.color; }
+    function resolvePowerSwap(a, b) { return union(powerArea(a, board[a.y][a.x], board[b.y][b.x]), powerArea(b, board[b.y][b.x], board[a.y][a.x])); }
 
     function expandPowerUps(matches) {
       const expanded = new Set(matches);
       const queue = [...matches];
       while (queue.length) {
         const pos = parseKey(queue.shift());
-        const tile = board[pos.y][pos.x];
-        for (const item of powerArea(pos, tile)) {
-          if (!expanded.has(item)) {
-            expanded.add(item);
-            queue.push(item);
-          }
+        for (const item of powerArea(pos, board[pos.y][pos.x])) {
+          if (!expanded.has(item)) { expanded.add(item); queue.push(item); }
         }
       }
       return expanded;
@@ -391,13 +429,8 @@
     function powerArea(pos, tile, other = null) {
       const hits = new Set();
       if (!tile || tile.kind === "normal") return hits;
-      if (tile.kind === "bomb") {
-        for (let y = pos.y - 1; y <= pos.y + 1; y++) for (let x = pos.x - 1; x <= pos.x + 1; x++) addIfInside(hits, x, y);
-      }
-      if (tile.kind === "dynamite") {
-        for (let x = 0; x < size; x++) hits.add(key(x, pos.y));
-        for (let y = 0; y < size; y++) hits.add(key(pos.x, y));
-      }
+      if (tile.kind === "bomb") for (let y = pos.y - 1; y <= pos.y + 1; y++) for (let x = pos.x - 1; x <= pos.x + 1; x++) addIfInside(hits, x, y);
+      if (tile.kind === "dynamite") { for (let x = 0; x < size; x++) hits.add(key(x, pos.y)); for (let y = 0; y < size; y++) hits.add(key(pos.x, y)); }
       if (tile.kind === "rainbow") {
         const target = other?.color || tile.color;
         for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (board[y][x].color === target) hits.add(key(x, y));
@@ -406,54 +439,104 @@
       return hits;
     }
 
-    function clearTiles(matches) {
-      for (const item of matches) {
-        const { x, y } = parseKey(item);
-        board[y][x] = null;
-      }
-    }
+    function clearTiles(matches) { for (const item of matches) { const { x, y } = parseKey(item); board[y][x] = null; } }
+    function collapse() { for (let x = 0; x < size; x++) { const left = []; for (let y = 0; y < size; y++) if (board[y][x]) left.push(board[y][x]); for (let y = 0; y < size; y++) board[y][x] = left[y] || null; } }
+    function fill() { for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!board[y][x]) board[y][x] = randomTile(); }
 
-    function collapse() {
-      for (let x = 0; x < size; x++) {
-        const remaining = [];
-        for (let y = 0; y < size; y++) if (board[y][x]) remaining.push(board[y][x]);
-        for (let y = 0; y < size; y++) board[y][x] = remaining[y] || null;
+    function refillLives() {
+      if (save.lives >= maxLives) { save.lastLifeAt = Date.now(); return; }
+      const gained = Math.floor((Date.now() - save.lastLifeAt) / lifeRefillMs);
+      if (gained > 0) {
+        save.lives = Math.min(maxLives, save.lives + gained);
+        save.lastLifeAt += gained * lifeRefillMs;
+        if (save.lives >= maxLives) save.lastLifeAt = Date.now();
+        persist();
       }
-    }
-
-    function fill() {
-      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!board[y][x]) board[y][x] = randomTile();
     }
 
     function updateHud() {
-      scoreEl.textContent = score;
-      movesEl.textContent = moves;
+      refillLives();
+      ui.score.textContent = score;
+      ui.moves.textContent = moves;
+      ui.target.textContent = targetScore;
+      ui.stars.textContent = save.stars;
+      ui.coins.textContent = save.coins;
+      ui.lives.textContent = save.lives;
+      ui.bestScore.textContent = save.bestScore;
+      ui.level.textContent = save.level;
+      ui.playerName.value = save.playerName;
+      ui.buyMoves.disabled = save.coins < 900 || gameOver;
+      const remaining = Math.max(0, lifeRefillMs - (Date.now() - save.lastLifeAt));
+      ui.lifeTimer.textContent = save.lives >= maxLives ? "Full" : formatTime(remaining);
     }
 
-    function addIfInside(set, x, y) {
-      if (x >= 0 && x < size && y >= 0 && y < size) set.add(key(x, y));
+    function setMessage(text) { ui.message.textContent = text; }
+    function addIfInside(set, x, y) { if (x >= 0 && x < size && y >= 0 && y < size) set.add(key(x, y)); }
+    function union(...sets) { const out = new Set(); for (const set of sets) for (const item of set) out.add(item); return out; }
+    function key(x, y) { return `${x},${y}`; }
+    function parseKey(value) { const [x, y] = value.split(",").map(Number); return { x, y }; }
+    function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+    function formatTime(ms) { const m = Math.floor(ms / 60000); const s = Math.floor((ms % 60000) / 1000); return `${m}:${String(s).padStart(2, "0")}`; }
+
+    async function api(path, options = {}) {
+      if (!API_BASE) throw new Error("No backend configured");
+      const res = await fetch(API_BASE + path, { headers: { "Content-Type": "application/json" }, ...options });
+      if (!res.ok) throw new Error("API error");
+      return res.json();
     }
 
-    function union(...sets) {
-      const result = new Set();
-      for (const set of sets) for (const item of set) result.add(item);
-      return result;
+    async function syncProfile() {
+      if (!API_BASE) { ui.syncStatus.textContent = "Local only"; return; }
+      try {
+        await api("/api/profile", { method: "POST", body: JSON.stringify(save) });
+        ui.syncStatus.textContent = "Synced";
+      } catch {
+        ui.syncStatus.textContent = "Offline";
+      }
     }
 
-    function key(x, y) {
-      return `${x},${y}`;
+    async function submitScore() {
+      if (!API_BASE) return refreshLeaderboard();
+      try {
+        await api("/api/score", { method: "POST", body: JSON.stringify({ playerId: save.playerId, playerName: save.playerName, score, level: save.level }) });
+        refreshLeaderboard();
+      } catch { refreshLeaderboard(); }
     }
 
-    function parseKey(value) {
-      const [x, y] = value.split(",").map(Number);
-      return { x, y };
+    async function refreshLeaderboard() {
+      let rows = [{ playerName: save.playerName, score: save.bestScore, level: save.level }];
+      if (API_BASE) {
+        try { rows = await api("/api/leaderboard"); } catch {}
+      }
+      ui.leaderboard.innerHTML = rows.slice(0, 10).map(row => `<li><b>${escapeHtml(row.playerName || "Player")}</b> - ${row.score || 0} pts, L${row.level || 1}</li>`).join("");
     }
 
-    function delay(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char])); }
 
-    resetEl.addEventListener("click", newGame);
+    ui.saveName.addEventListener("click", () => { save.playerName = ui.playerName.value.trim() || "Player"; persist(); refreshLeaderboard(); setMessage("Name saved."); });
+    ui.newGame.addEventListener("click", newGame);
+    ui.buyMoves.addEventListener("click", () => {
+      if (save.coins >= 900 && !gameOver) {
+        save.coins -= 900;
+        moves += 5;
+        persist();
+        updateHud();
+        setMessage("+5 moves added.");
+      }
+    });
+    ui.renovate.addEventListener("click", () => {
+      const costs = [10, 15, 25, 30, 40];
+      const cost = costs[Math.min(save.completedTasks, costs.length - 1)];
+      if (save.stars < cost) { setMessage(`Need ${cost} stars for next garden task.`); return; }
+      save.stars -= cost;
+      save.completedTasks++;
+      persist();
+      updateHud();
+      setMessage("Garden task complete! New decoration unlocked.");
+    });
+
+    setInterval(updateHud, 1000);
+    refreshLeaderboard();
     newGame();
   </script>
 </body>
