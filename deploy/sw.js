@@ -1,5 +1,5 @@
-const CACHE_NAME = "mygarden-match3-v2";
-const FILES = ["./", "./index.html", "./manifest.json", "./icon.svg", "./privacy.html"];
+const CACHE_NAME = "mygarden-match3-v3";
+const FILES = ["./", "./index.html", "./app.html", "./manifest.json", "./icon.svg", "./privacy.html"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)));
@@ -13,5 +13,13 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
+  if (event.request.mode === "navigate") {
+    event.respondWith(fetch(event.request).catch(() => caches.match("./app.html").then(cached => cached || caches.match("./index.html"))));
+    return;
+  }
+  event.respondWith(fetch(event.request).then(response => {
+    const copy = response.clone();
+    caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+    return response;
+  }).catch(() => caches.match(event.request)));
 });
