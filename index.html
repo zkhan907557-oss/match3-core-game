@@ -2,13 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10141b">
+  <meta name="description" content="A polished match-3 garden puzzle prototype with lives, rewards, boosters, achievements, and leaderboard support.">
+  <link rel="manifest" href="manifest.json">
   <title>MyGarden Match-3</title>
   <style>
     :root {
       --bg: #10141b;
       --panel: #1e2632;
-      --panel2: #273140;
+      --panel2: #283444;
       --line: rgba(255,255,255,0.12);
       --text: #f7f8fb;
       --muted: #aeb8c8;
@@ -24,11 +27,12 @@
       background: radial-gradient(circle at top left, #284353 0, var(--bg) 46%);
       color: var(--text);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
     main {
       width: min(1180px, 96vw);
       margin: 0 auto;
-      padding: 18px 0;
+      padding: max(16px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom));
       display: grid;
       grid-template-columns: minmax(320px, 540px) minmax(280px, 1fr);
       gap: 16px;
@@ -37,7 +41,7 @@
     header, .panel {
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(30,38,50,0.92);
+      background: rgba(30,38,50,0.94);
       box-shadow: 0 18px 48px rgba(0,0,0,0.28);
     }
     header {
@@ -48,22 +52,18 @@
       gap: 12px;
       align-items: center;
     }
-    h1, h2 { margin: 0; letter-spacing: 0; }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
     h1 { font-size: clamp(22px, 3vw, 34px); }
     h2 { font-size: 16px; margin-bottom: 10px; }
+    h3 { font-size: 14px; margin: 12px 0 8px; color: var(--gold); }
     .tag { color: var(--muted); font-size: 13px; margin-top: 2px; }
-    .hud {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
+    .hud { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .pill, .stat {
       border: 1px solid var(--line);
       border-radius: 8px;
       background: rgba(255,255,255,0.06);
       padding: 8px 10px;
-      min-width: 82px;
+      min-width: 78px;
       text-align: center;
     }
     .pill b, .stat b { display: block; font-size: 18px; }
@@ -81,6 +81,7 @@
       border-radius: 8px;
       background: #0b0f15;
       touch-action: manipulation;
+      user-select: none;
     }
     .tile {
       position: relative;
@@ -94,6 +95,7 @@
     .tile:hover { transform: translateY(-1px); }
     .tile.selected { outline: 4px solid var(--accent); outline-offset: -4px; transform: scale(0.94); }
     .tile.clearing { opacity: 0; transform: scale(0.2) rotate(10deg); }
+    .tile.hint { outline: 4px solid var(--gold); outline-offset: -4px; }
     .tile::after {
       position: absolute;
       inset: 0;
@@ -137,7 +139,7 @@
       padding: 11px 12px;
       outline: none;
     }
-    button.action {
+    button.action, a.action {
       width: 100%;
       border: 0;
       border-radius: 8px;
@@ -146,10 +148,18 @@
       color: #07120f;
       font-weight: 800;
       cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
     }
-    button.secondary { background: #364254; color: var(--text); }
+    button.secondary, a.secondary { background: #364254; color: var(--text); }
     button.danger { background: var(--danger); color: #21080b; }
     button.action:disabled { opacity: 0.55; cursor: not-allowed; }
+    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+    .tab { background: #364254; color: var(--text); }
+    .tab.active { background: var(--accent); color: #07120f; }
+    .view { display: none; }
+    .view.active { display: block; }
     #message {
       min-height: 24px;
       padding: 10px 0 0;
@@ -159,7 +169,8 @@
     }
     ol { margin: 0; padding-left: 22px; color: var(--muted); }
     li { margin: 7px 0; }
-    code { color: var(--accent); }
+    .small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .achievement.done b { color: var(--accent); }
     @media (max-width: 860px) {
       main { grid-template-columns: 1fr; }
       header { align-items: flex-start; flex-direction: column; }
@@ -167,7 +178,7 @@
     }
     @media (max-width: 560px) {
       :root { --cell: calc((96vw - 42px) / 8); }
-      .grid { grid-template-columns: 1fr; }
+      .grid, .tabs { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -176,7 +187,7 @@
     <header>
       <div>
         <h1>MyGarden Match-3</h1>
-        <div class="tag">Playable game with save, economy, lives, and optional backend sync</div>
+        <div class="tag">Play Store style prototype: rewards, lives, boosters, save, leaderboard, privacy page</div>
       </div>
       <div class="hud">
         <div class="pill"><b id="stars">0</b><span>Stars</span></div>
@@ -198,30 +209,65 @@
 
     <aside class="side">
       <section class="panel">
-        <h2>Player</h2>
-        <div class="grid">
-          <input id="playerName" maxlength="18" aria-label="Player name">
-          <button class="action" id="saveName" type="button">Save Name</button>
-          <button class="action secondary" id="newGame" type="button">New Level</button>
-          <button class="action danger" id="buyMoves" type="button">+5 Moves 900 Coins</button>
+        <div class="tabs">
+          <button class="action tab active" type="button" data-tab="play">Play</button>
+          <button class="action tab" type="button" data-tab="shop">Shop</button>
+          <button class="action tab" type="button" data-tab="goals">Goals</button>
+          <button class="action tab" type="button" data-tab="settings">Settings</button>
         </div>
-        <div class="row"><span>Backend</span><b id="syncStatus">Local only</b></div>
-        <div class="row"><span>Best Score</span><b id="bestScore">0</b></div>
-        <div class="row"><span>Level</span><b id="level">1</b></div>
-        <div class="row"><span>Next Life</span><b id="lifeTimer">Full</b></div>
-      </section>
 
-      <section class="panel">
-        <h2>Garden Tasks</h2>
-        <div class="row"><span>Fix fountain</span><b>10 Stars</b></div>
-        <div class="row"><span>Plant flowers</span><b>15 Stars</b></div>
-        <div class="row"><span>Repair gazebo</span><b>25 Stars</b></div>
-        <button class="action" id="renovate" type="button">Spend Stars on Next Task</button>
-      </section>
+        <div class="view active" id="view-play">
+          <h2>Player</h2>
+          <div class="grid">
+            <input id="playerName" maxlength="18" aria-label="Player name">
+            <button class="action" id="saveName" type="button">Save Name</button>
+            <button class="action secondary" id="newGame" type="button">New Level</button>
+            <button class="action secondary" id="hint" type="button">Hint 100 Coins</button>
+            <button class="action danger" id="buyMoves" type="button">+5 Moves 900 Coins</button>
+            <button class="action" id="dailyReward" type="button">Daily Reward</button>
+          </div>
+          <div class="row"><span>Backend</span><b id="syncStatus">Local only</b></div>
+          <div class="row"><span>Best Score</span><b id="bestScore">0</b></div>
+          <div class="row"><span>Level</span><b id="level">1</b></div>
+          <div class="row"><span>Next Life</span><b id="lifeTimer">Full</b></div>
+        </div>
 
-      <section class="panel">
-        <h2>Leaderboard</h2>
-        <ol id="leaderboard"></ol>
+        <div class="view" id="view-shop">
+          <h2>Shop</h2>
+          <div class="grid">
+            <button class="action" id="refillLives" type="button">Refill Lives 500 Coins</button>
+            <button class="action" id="buyBomb" type="button">Bomb Booster 300 Coins</button>
+            <button class="action" id="buyRainbow" type="button">Rainbow Booster 500 Coins</button>
+            <button class="action" id="buyDynamite" type="button">Dynamite Booster 400 Coins</button>
+          </div>
+          <h3>Boosters</h3>
+          <div class="row"><span>Bomb</span><b id="bombs">0</b></div>
+          <div class="row"><span>Rainbow</span><b id="rainbows">0</b></div>
+          <div class="row"><span>Dynamite</span><b id="dynamites">0</b></div>
+          <p class="small">In a production game, coin purchases must use Google Play Billing. These buttons are soft-currency demo purchases.</p>
+        </div>
+
+        <div class="view" id="view-goals">
+          <h2>Garden Tasks</h2>
+          <div class="row"><span>Fix fountain</span><b>10 Stars</b></div>
+          <div class="row"><span>Plant flowers</span><b>15 Stars</b></div>
+          <div class="row"><span>Repair gazebo</span><b>25 Stars</b></div>
+          <button class="action" id="renovate" type="button">Spend Stars on Next Task</button>
+          <h3>Achievements</h3>
+          <div id="achievements"></div>
+        </div>
+
+        <div class="view" id="view-settings">
+          <h2>Settings</h2>
+          <div class="grid">
+            <button class="action secondary" id="soundToggle" type="button">Sound On</button>
+            <button class="action secondary" id="vibrationToggle" type="button">Vibration On</button>
+            <button class="action secondary" id="installApp" type="button">Install App</button>
+            <a class="action secondary" href="privacy.html">Privacy</a>
+          </div>
+          <h3>Leaderboard</h3>
+          <ol id="leaderboard"></ol>
+        </div>
       </section>
     </aside>
   </main>
@@ -235,32 +281,46 @@
     const moveLimit = 25;
     const maxLives = 5;
     const lifeRefillMs = 30 * 60 * 1000;
-    const storageKey = "mygarden_match3_save_v2";
+    const storageKey = "mygarden_match3_save_v3";
     const boardEl = document.querySelector("#board");
-    const ui = Object.fromEntries(["score","moves","target","chain","stars","coins","lives","message","playerName","saveName","newGame","buyMoves","syncStatus","bestScore","level","lifeTimer","renovate","leaderboard"].map(id => [id, document.querySelector("#" + id)]));
-
+    const ids = ["score","moves","target","chain","stars","coins","lives","message","playerName","saveName","newGame","buyMoves","syncStatus","bestScore","level","lifeTimer","renovate","leaderboard","dailyReward","hint","refillLives","buyBomb","buyRainbow","buyDynamite","bombs","rainbows","dynamites","achievements","soundToggle","vibrationToggle","installApp"];
+    const ui = Object.fromEntries(ids.map(id => [id, document.querySelector("#" + id)]));
     let board = [];
     let selected = null;
     let busy = false;
     let gameOver = false;
+    let hintCells = new Set();
     let score = 0;
     let moves = moveLimit;
+    let deferredInstall = null;
     let save = loadSave();
+
+    const achievements = [
+      { id: "score_5k", name: "Garden Spark", text: "Score 5,000 in one level", test: () => save.bestScore >= 5000, reward: 100 },
+      { id: "level_5", name: "Fresh Start", text: "Reach level 5", test: () => save.level >= 5, reward: 150 },
+      { id: "tasks_3", name: "Renovator", text: "Complete 3 garden tasks", test: () => save.completedTasks >= 3, reward: 250 }
+    ];
 
     function loadSave() {
       const fallback = {
         playerId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
         playerName: "Player",
         stars: 0,
-        coins: 1200,
+        coins: 1500,
         lives: maxLives,
         level: 1,
         bestScore: 0,
         completedTasks: 0,
-        lastLifeAt: Date.now()
+        lastLifeAt: Date.now(),
+        lastDailyReward: "",
+        boosters: { bomb: 1, rainbow: 0, dynamite: 1 },
+        settings: { sound: true, vibration: true },
+        achievements: {}
       };
-      try { return { ...fallback, ...JSON.parse(localStorage.getItem(storageKey) || "{}") }; }
-      catch { return fallback; }
+      try {
+        const loaded = JSON.parse(localStorage.getItem(storageKey) || "{}");
+        return { ...fallback, ...loaded, boosters: { ...fallback.boosters, ...(loaded.boosters || {}) }, settings: { ...fallback.settings, ...(loaded.settings || {}) }, achievements: { ...(loaded.achievements || {}) } };
+      } catch { return fallback; }
     }
 
     function persist() {
@@ -278,20 +338,19 @@
 
     function newGame() {
       refillLives();
-      if (save.lives <= 0) {
-        setMessage("No lives. Wait for refill or use coins later.");
-        return;
-      }
+      if (save.lives <= 0) return setMessage("No lives. Wait for refill or use coins.");
       board = [];
       selected = null;
       score = 0;
       moves = moveLimit;
       busy = false;
       gameOver = false;
+      hintCells = new Set();
       for (let y = 0; y < size; y++) {
         board[y] = [];
         for (let x = 0; x < size; x++) board[y][x] = randomTile(x, y);
       }
+      if (!hasPossibleMove()) reshuffle();
       setMessage("Match 3 tiles. Win stars and coins.");
       updateHud();
       render();
@@ -307,6 +366,7 @@
           button.className = `tile ${tile.color} ${tile.kind}`;
           if (selected?.x === x && selected?.y === y) button.classList.add("selected");
           if (clearing.has(key(x, y))) button.classList.add("clearing");
+          if (hintCells.has(key(x, y))) button.classList.add("hint");
           button.setAttribute("aria-label", `${tile.kind} ${tile.color} tile`);
           button.addEventListener("click", () => pick(x, y));
           boardEl.appendChild(button);
@@ -316,6 +376,7 @@
 
     async function pick(x, y) {
       if (busy || gameOver || !board[y]?.[x]) return;
+      hintCells = new Set();
       if (!selected) { selected = { x, y }; render(); return; }
       if (selected.x === x && selected.y === y) { selected = null; render(); return; }
       if (Math.abs(selected.x - x) + Math.abs(selected.y - y) !== 1) { selected = { x, y }; render(); return; }
@@ -332,11 +393,16 @@
       if (power) matches = union(matches, resolvePowerSwap(a, b));
       if (matches.size === 0) {
         swap(a, b);
+        buzz(20);
         busy = false;
         return;
       }
       moves--;
       await resolve(matches);
+      if (!hasPossibleMove()) {
+        reshuffle();
+        setMessage("Board reshuffled. Fresh chance!");
+      }
       if (score >= targetScore) winLevel();
       else if (moves <= 0) failLevel();
       updateHud();
@@ -351,6 +417,7 @@
         const expanded = expandPowerUps(matches);
         score += expanded.size * 100 * chain;
         render(expanded);
+        buzz(12);
         await delay(170);
         clearTiles(expanded);
         collapse();
@@ -371,6 +438,7 @@
       save.level++;
       save.bestScore = Math.max(save.bestScore, score);
       setMessage(`Level complete! +${starsEarned} stars, +${coinsEarned} coins.`);
+      claimAchievements();
       persist();
       submitScore();
     }
@@ -381,6 +449,7 @@
       save.lastLifeAt = Date.now();
       save.bestScore = Math.max(save.bestScore, score);
       setMessage("Level failed. One life used.");
+      claimAchievements();
       persist();
       submitScore();
     }
@@ -443,6 +512,27 @@
     function collapse() { for (let x = 0; x < size; x++) { const left = []; for (let y = 0; y < size; y++) if (board[y][x]) left.push(board[y][x]); for (let y = 0; y < size; y++) board[y][x] = left[y] || null; } }
     function fill() { for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!board[y][x]) board[y][x] = randomTile(); }
 
+    function hasPossibleMove() { return Boolean(findPossibleMove()); }
+    function findPossibleMove() {
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        for (const d of [{ x: 1, y: 0 }, { x: 0, y: 1 }]) {
+          const nx = x + d.x, ny = y + d.y;
+          if (nx >= size || ny >= size) continue;
+          swapRaw(x, y, nx, ny);
+          const ok = findMatches().size > 0;
+          swapRaw(x, y, nx, ny);
+          if (ok) return [{ x, y }, { x: nx, y: ny }];
+        }
+      }
+      return null;
+    }
+    function swapRaw(x1, y1, x2, y2) { [board[y1][x1], board[y2][x2]] = [board[y2][x2], board[y1][x1]]; }
+    function reshuffle() {
+      const tiles = board.flat().sort(() => Math.random() - 0.5);
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) board[y][x] = tiles.pop();
+      if (findMatches().size > 0 || !hasPossibleMove()) newGame();
+    }
+
     function refillLives() {
       if (save.lives >= maxLives) { save.lastLifeAt = Date.now(); return; }
       const gained = Math.floor((Date.now() - save.lastLifeAt) / lifeRefillMs);
@@ -452,6 +542,60 @@
         if (save.lives >= maxLives) save.lastLifeAt = Date.now();
         persist();
       }
+    }
+
+    function claimDailyReward() {
+      const today = new Date().toISOString().slice(0, 10);
+      if (save.lastDailyReward === today) return setMessage("Daily reward already claimed.");
+      save.lastDailyReward = today;
+      save.coins += 250;
+      save.stars += 3;
+      save.boosters.bomb += 1;
+      persist();
+      updateHud();
+      setMessage("Daily reward: +250 coins, +3 stars, +1 bomb.");
+    }
+
+    function buy(cost, action, label) {
+      if (save.coins < cost) return setMessage(`Need ${cost} coins.`);
+      save.coins -= cost;
+      action();
+      persist();
+      updateHud();
+      setMessage(label);
+    }
+
+    function showHint() {
+      if (save.coins < 100) return setMessage("Need 100 coins for hint.");
+      const move = findPossibleMove();
+      if (!move) return setMessage("No move found. New board coming.");
+      save.coins -= 100;
+      hintCells = new Set(move.map(pos => key(pos.x, pos.y)));
+      persist();
+      updateHud();
+      render();
+      setMessage("Hint highlighted.");
+    }
+
+    function claimAchievements() {
+      let reward = 0;
+      for (const achievement of achievements) {
+        if (!save.achievements[achievement.id] && achievement.test()) {
+          save.achievements[achievement.id] = true;
+          reward += achievement.reward;
+        }
+      }
+      if (reward > 0) {
+        save.coins += reward;
+        setMessage(`Achievement reward: +${reward} coins.`);
+      }
+    }
+
+    function renderAchievements() {
+      ui.achievements.innerHTML = achievements.map(item => {
+        const done = save.achievements[item.id] || item.test();
+        return `<div class="row achievement ${done ? "done" : ""}"><span>${escapeHtml(item.name)}<br><small>${escapeHtml(item.text)}</small></span><b>${done ? "Done" : item.reward + " Coins"}</b></div>`;
+      }).join("");
     }
 
     function updateHud() {
@@ -465,18 +609,27 @@
       ui.bestScore.textContent = save.bestScore;
       ui.level.textContent = save.level;
       ui.playerName.value = save.playerName;
+      ui.bombs.textContent = save.boosters.bomb;
+      ui.rainbows.textContent = save.boosters.rainbow;
+      ui.dynamites.textContent = save.boosters.dynamite;
       ui.buyMoves.disabled = save.coins < 900 || gameOver;
+      ui.dailyReward.disabled = save.lastDailyReward === new Date().toISOString().slice(0, 10);
+      ui.soundToggle.textContent = save.settings.sound ? "Sound On" : "Sound Off";
+      ui.vibrationToggle.textContent = save.settings.vibration ? "Vibration On" : "Vibration Off";
       const remaining = Math.max(0, lifeRefillMs - (Date.now() - save.lastLifeAt));
       ui.lifeTimer.textContent = save.lives >= maxLives ? "Full" : formatTime(remaining);
+      renderAchievements();
     }
 
     function setMessage(text) { ui.message.textContent = text; }
+    function buzz(ms) { if (save.settings.vibration && navigator.vibrate) navigator.vibrate(ms); }
     function addIfInside(set, x, y) { if (x >= 0 && x < size && y >= 0 && y < size) set.add(key(x, y)); }
     function union(...sets) { const out = new Set(); for (const set of sets) for (const item of set) out.add(item); return out; }
     function key(x, y) { return `${x},${y}`; }
     function parseKey(value) { const [x, y] = value.split(",").map(Number); return { x, y }; }
     function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
     function formatTime(ms) { const m = Math.floor(ms / 60000); const s = Math.floor((ms % 60000) / 1000); return `${m}:${String(s).padStart(2, "0")}`; }
+    function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char])); }
 
     async function api(path, options = {}) {
       if (!API_BASE) throw new Error("No backend configured");
@@ -484,25 +637,16 @@
       if (!res.ok) throw new Error("API error");
       return res.json();
     }
-
     async function syncProfile() {
       if (!API_BASE) { ui.syncStatus.textContent = "Local only"; return; }
-      try {
-        await api("/api/profile", { method: "POST", body: JSON.stringify(save) });
-        ui.syncStatus.textContent = "Synced";
-      } catch {
-        ui.syncStatus.textContent = "Offline";
-      }
+      try { await api("/api/profile", { method: "POST", body: JSON.stringify(save) }); ui.syncStatus.textContent = "Synced"; }
+      catch { ui.syncStatus.textContent = "Offline"; }
     }
-
     async function submitScore() {
       if (!API_BASE) return refreshLeaderboard();
-      try {
-        await api("/api/score", { method: "POST", body: JSON.stringify({ playerId: save.playerId, playerName: save.playerName, score, level: save.level }) });
-        refreshLeaderboard();
-      } catch { refreshLeaderboard(); }
+      try { await api("/api/score", { method: "POST", body: JSON.stringify({ playerId: save.playerId, playerName: save.playerName, score, level: save.level }) }); refreshLeaderboard(); }
+      catch { refreshLeaderboard(); }
     }
-
     async function refreshLeaderboard() {
       let rows = [{ playerName: save.playerName, score: save.bestScore, level: save.level }];
       if (API_BASE) {
@@ -511,29 +655,42 @@
       ui.leaderboard.innerHTML = rows.slice(0, 10).map(row => `<li><b>${escapeHtml(row.playerName || "Player")}</b> - ${row.score || 0} pts, L${row.level || 1}</li>`).join("");
     }
 
-    function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char])); }
+    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(item => item.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(item => item.classList.remove("active"));
+      tab.classList.add("active");
+      document.querySelector("#view-" + tab.dataset.tab).classList.add("active");
+    }));
 
     ui.saveName.addEventListener("click", () => { save.playerName = ui.playerName.value.trim() || "Player"; persist(); refreshLeaderboard(); setMessage("Name saved."); });
     ui.newGame.addEventListener("click", newGame);
-    ui.buyMoves.addEventListener("click", () => {
-      if (save.coins >= 900 && !gameOver) {
-        save.coins -= 900;
-        moves += 5;
-        persist();
-        updateHud();
-        setMessage("+5 moves added.");
-      }
-    });
+    ui.hint.addEventListener("click", showHint);
+    ui.dailyReward.addEventListener("click", claimDailyReward);
+    ui.buyMoves.addEventListener("click", () => buy(900, () => { moves += 5; }, "+5 moves added."));
+    ui.refillLives.addEventListener("click", () => buy(500, () => { save.lives = maxLives; save.lastLifeAt = Date.now(); }, "Lives refilled."));
+    ui.buyBomb.addEventListener("click", () => buy(300, () => save.boosters.bomb++, "Bomb booster added."));
+    ui.buyRainbow.addEventListener("click", () => buy(500, () => save.boosters.rainbow++, "Rainbow booster added."));
+    ui.buyDynamite.addEventListener("click", () => buy(400, () => save.boosters.dynamite++, "Dynamite booster added."));
     ui.renovate.addEventListener("click", () => {
       const costs = [10, 15, 25, 30, 40];
       const cost = costs[Math.min(save.completedTasks, costs.length - 1)];
-      if (save.stars < cost) { setMessage(`Need ${cost} stars for next garden task.`); return; }
+      if (save.stars < cost) return setMessage(`Need ${cost} stars for next garden task.`);
       save.stars -= cost;
       save.completedTasks++;
+      claimAchievements();
       persist();
       updateHud();
       setMessage("Garden task complete! New decoration unlocked.");
     });
+    ui.soundToggle.addEventListener("click", () => { save.settings.sound = !save.settings.sound; persist(); updateHud(); });
+    ui.vibrationToggle.addEventListener("click", () => { save.settings.vibration = !save.settings.vibration; persist(); updateHud(); });
+    ui.installApp.addEventListener("click", async () => {
+      if (!deferredInstall) return setMessage("Install option appears after opening from a supported browser.");
+      deferredInstall.prompt();
+      deferredInstall = null;
+    });
+    window.addEventListener("beforeinstallprompt", event => { event.preventDefault(); deferredInstall = event; });
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
     setInterval(updateHud, 1000);
     refreshLeaderboard();

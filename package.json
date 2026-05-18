@@ -1,0 +1,13 @@
+{
+  "name": "mygarden-match3",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Match-3 garden puzzle prototype with optional Node.js backend.",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

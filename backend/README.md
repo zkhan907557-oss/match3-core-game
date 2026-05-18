@@ -5,7 +5,7 @@ Dependency-free Node.js backend for the Match-3 prototype.
 ## Run locally
 
 ```bash
-node backend/server.js
+npm start
 ```
 
 Open:
@@ -30,3 +30,14 @@ localStorage.setItem("match3ApiBase", "https://your-backend-url.com");
 location.reload();
 ```
 
+## Deploy backend
+
+Use Render, Railway, or any Node host.
+
+Start command:
+
+```bash
+npm start
+```
+
+The backend stores demo data in `backend/data.json`. For production, replace this with Firebase, Supabase, Postgres, or another managed database.

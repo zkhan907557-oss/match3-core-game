@@ -104,6 +104,8 @@ Minimum assets:
 3. Phone screenshots: kam se kam 2
 4. Privacy policy URL
 5. Signed `.aab` file
+6. Google Play Billing integration agar real money se coins sell karne hain
+7. Data Safety form me local save, leaderboard/backend data ka correct declaration
 
 ## Abhi tumhare folder me kya ready hai
 
@@ -128,4 +130,3 @@ https://developer.android.com/guide/app-bundle/app-bundle-format
 Play Console start:
 
 https://support.google.com/googleplay/android-developer/answer/6112435
-

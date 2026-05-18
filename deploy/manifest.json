@@ -1,0 +1,19 @@
+{
+  "name": "MyGarden Match-3",
+  "short_name": "MyGarden",
+  "description": "Match-3 garden puzzle prototype with rewards, lives, boosters, and leaderboard support.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#10141b",
+  "theme_color": "#10141b",
+  "orientation": "portrait",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
