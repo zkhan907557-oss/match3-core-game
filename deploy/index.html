@@ -69,6 +69,15 @@
     .pill b, .stat b { display: block; font-size: 18px; }
     .pill span, .stat span { color: var(--muted); font-size: 12px; }
     .game-panel { padding: 14px; }
+    .board-shell {
+      width: fit-content;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 10px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.12);
+    }
     #board {
       width: calc(var(--cell) * 8 + 14px);
       max-width: 100%;
@@ -96,6 +105,7 @@
     .tile.selected { outline: 4px solid var(--accent); outline-offset: -4px; transform: scale(0.94); }
     .tile.clearing { opacity: 0; transform: scale(0.2) rotate(10deg); }
     .tile.hint { outline: 4px solid var(--gold); outline-offset: -4px; }
+    .tile.booster-target { outline: 4px solid var(--accent); outline-offset: -4px; }
     .tile::after {
       position: absolute;
       inset: 0;
@@ -171,6 +181,14 @@
     li { margin: 7px 0; }
     .small { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .achievement.done b { color: var(--accent); }
+    .notice {
+      margin-top: 8px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: rgba(112,225,200,0.1);
+      color: var(--text);
+      font-size: 13px;
+    }
     @media (max-width: 860px) {
       main { grid-template-columns: 1fr; }
       header { align-items: flex-start; flex-direction: column; }
@@ -203,7 +221,9 @@
         <div class="stat"><b id="target">10000</b><span>Target</span></div>
         <div class="stat"><b id="chain">0</b><span>Chain</span></div>
       </div>
-      <section id="board" aria-label="Match-3 board"></section>
+      <div class="board-shell">
+        <section id="board" aria-label="Match-3 board"></section>
+      </div>
       <div id="message">Match 3 tiles. Win stars and coins.</div>
     </section>
 
@@ -236,14 +256,18 @@
           <h2>Shop</h2>
           <div class="grid">
             <button class="action" id="refillLives" type="button">Refill Lives 500 Coins</button>
-            <button class="action" id="buyBomb" type="button">Bomb Booster 300 Coins</button>
-            <button class="action" id="buyRainbow" type="button">Rainbow Booster 500 Coins</button>
-            <button class="action" id="buyDynamite" type="button">Dynamite Booster 400 Coins</button>
+            <button class="action" id="buyBomb" type="button">Buy Bomb 300</button>
+            <button class="action" id="buyRainbow" type="button">Buy Rainbow 500</button>
+            <button class="action" id="buyDynamite" type="button">Buy Dynamite 400</button>
           </div>
           <h3>Boosters</h3>
-          <div class="row"><span>Bomb</span><b id="bombs">0</b></div>
-          <div class="row"><span>Rainbow</span><b id="rainbows">0</b></div>
-          <div class="row"><span>Dynamite</span><b id="dynamites">0</b></div>
+          <div class="grid">
+            <button class="action secondary" id="useBomb" type="button">Use Bomb: 0</button>
+            <button class="action secondary" id="useRainbow" type="button">Use Rainbow: 0</button>
+            <button class="action secondary" id="useDynamite" type="button">Use Dynamite: 0</button>
+            <button class="action secondary" id="cancelBooster" type="button">Cancel Booster</button>
+          </div>
+          <div class="notice" id="boosterNotice">Select a booster, then tap any tile on the board.</div>
           <p class="small">In a production game, coin purchases must use Google Play Billing. These buttons are soft-currency demo purchases.</p>
         </div>
 
@@ -283,13 +307,14 @@
     const lifeRefillMs = 30 * 60 * 1000;
     const storageKey = "mygarden_match3_save_v3";
     const boardEl = document.querySelector("#board");
-    const ids = ["score","moves","target","chain","stars","coins","lives","message","playerName","saveName","newGame","buyMoves","syncStatus","bestScore","level","lifeTimer","renovate","leaderboard","dailyReward","hint","refillLives","buyBomb","buyRainbow","buyDynamite","bombs","rainbows","dynamites","achievements","soundToggle","vibrationToggle","installApp"];
+    const ids = ["score","moves","target","chain","stars","coins","lives","message","playerName","saveName","newGame","buyMoves","syncStatus","bestScore","level","lifeTimer","renovate","leaderboard","dailyReward","hint","refillLives","buyBomb","buyRainbow","buyDynamite","useBomb","useRainbow","useDynamite","cancelBooster","boosterNotice","achievements","soundToggle","vibrationToggle","installApp"];
     const ui = Object.fromEntries(ids.map(id => [id, document.querySelector("#" + id)]));
     let board = [];
     let selected = null;
     let busy = false;
     let gameOver = false;
     let hintCells = new Set();
+    let activeBooster = null;
     let score = 0;
     let moves = moveLimit;
     let deferredInstall = null;
@@ -367,6 +392,7 @@
           if (selected?.x === x && selected?.y === y) button.classList.add("selected");
           if (clearing.has(key(x, y))) button.classList.add("clearing");
           if (hintCells.has(key(x, y))) button.classList.add("hint");
+          if (activeBooster) button.classList.add("booster-target");
           button.setAttribute("aria-label", `${tile.kind} ${tile.color} tile`);
           button.addEventListener("click", () => pick(x, y));
           boardEl.appendChild(button);
@@ -377,6 +403,10 @@
     async function pick(x, y) {
       if (busy || gameOver || !board[y]?.[x]) return;
       hintCells = new Set();
+      if (activeBooster) {
+        await useBoosterAt(activeBooster, x, y);
+        return;
+      }
       if (!selected) { selected = { x, y }; render(); return; }
       if (selected.x === x && selected.y === y) { selected = null; render(); return; }
       if (Math.abs(selected.x - x) + Math.abs(selected.y - y) !== 1) { selected = { x, y }; render(); return; }
@@ -528,9 +558,43 @@
     }
     function swapRaw(x1, y1, x2, y2) { [board[y1][x1], board[y2][x2]] = [board[y2][x2], board[y1][x1]]; }
     function reshuffle() {
-      const tiles = board.flat().sort(() => Math.random() - 0.5);
-      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) board[y][x] = tiles.pop();
-      if (findMatches().size > 0 || !hasPossibleMove()) newGame();
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const tiles = board.flat().sort(() => Math.random() - 0.5);
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) board[y][x] = tiles.pop();
+        if (findMatches().size === 0 && hasPossibleMove()) return;
+      }
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) board[y][x] = randomTile(x, y);
+    }
+
+    async function useBoosterAt(kind, x, y) {
+      const keyName = kind === "bomb" ? "bomb" : kind === "rainbow" ? "rainbow" : "dynamite";
+      if ((save.boosters[keyName] || 0) <= 0) {
+        activeBooster = null;
+        setMessage("No booster left.");
+        updateHud();
+        render();
+        return;
+      }
+      busy = true;
+      save.boosters[keyName]--;
+      board[y][x].kind = kind;
+      activeBooster = null;
+      selected = null;
+      persist();
+      const matches = powerArea({ x, y }, board[y][x]);
+      matches.add(key(x, y));
+      await resolve(matches);
+      if (!hasPossibleMove()) {
+        reshuffle();
+        setMessage("Board reshuffled. Fresh chance!");
+      } else {
+        setMessage(`${kind[0].toUpperCase() + kind.slice(1)} booster used.`);
+      }
+      if (score >= targetScore) winLevel();
+      else if (moves <= 0) failLevel();
+      updateHud();
+      render();
+      busy = false;
     }
 
     function refillLives() {
@@ -609,9 +673,13 @@
       ui.bestScore.textContent = save.bestScore;
       ui.level.textContent = save.level;
       ui.playerName.value = save.playerName;
-      ui.bombs.textContent = save.boosters.bomb;
-      ui.rainbows.textContent = save.boosters.rainbow;
-      ui.dynamites.textContent = save.boosters.dynamite;
+      ui.useBomb.textContent = `${activeBooster === "bomb" ? "Using" : "Use"} Bomb: ${save.boosters.bomb}`;
+      ui.useRainbow.textContent = `${activeBooster === "rainbow" ? "Using" : "Use"} Rainbow: ${save.boosters.rainbow}`;
+      ui.useDynamite.textContent = `${activeBooster === "dynamite" ? "Using" : "Use"} Dynamite: ${save.boosters.dynamite}`;
+      ui.useBomb.disabled = save.boosters.bomb <= 0 || gameOver;
+      ui.useRainbow.disabled = save.boosters.rainbow <= 0 || gameOver;
+      ui.useDynamite.disabled = save.boosters.dynamite <= 0 || gameOver;
+      ui.boosterNotice.textContent = activeBooster ? `Tap a tile to fire ${activeBooster}.` : "Select a booster, then tap any tile on the board.";
       ui.buyMoves.disabled = save.coins < 900 || gameOver;
       ui.dailyReward.disabled = save.lastDailyReward === new Date().toISOString().slice(0, 10);
       ui.soundToggle.textContent = save.settings.sound ? "Sound On" : "Sound Off";
@@ -671,6 +739,10 @@
     ui.buyBomb.addEventListener("click", () => buy(300, () => save.boosters.bomb++, "Bomb booster added."));
     ui.buyRainbow.addEventListener("click", () => buy(500, () => save.boosters.rainbow++, "Rainbow booster added."));
     ui.buyDynamite.addEventListener("click", () => buy(400, () => save.boosters.dynamite++, "Dynamite booster added."));
+    ui.useBomb.addEventListener("click", () => { activeBooster = "bomb"; selected = null; updateHud(); render(); });
+    ui.useRainbow.addEventListener("click", () => { activeBooster = "rainbow"; selected = null; updateHud(); render(); });
+    ui.useDynamite.addEventListener("click", () => { activeBooster = "dynamite"; selected = null; updateHud(); render(); });
+    ui.cancelBooster.addEventListener("click", () => { activeBooster = null; updateHud(); render(); });
     ui.renovate.addEventListener("click", () => {
       const costs = [10, 15, 25, 30, 40];
       const cost = costs[Math.min(save.completedTasks, costs.length - 1)];

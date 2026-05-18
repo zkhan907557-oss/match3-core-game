@@ -1,4 +1,4 @@
-const CACHE_NAME = "mygarden-match3-v1";
+const CACHE_NAME = "mygarden-match3-v2";
 const FILES = ["./", "./index.html", "./manifest.json", "./icon.svg", "./privacy.html"];
 
 self.addEventListener("install", event => {
