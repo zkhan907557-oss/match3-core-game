@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Match-3 Core Engine Playtest</title>
+  <style>
+    :root {
+      --bg: #141820;
+      --panel: #202633;
+      --text: #f5f7fb;
+      --muted: #aeb7c7;
+      --accent: #64d2ff;
+      --cell: 58px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, #283145 0, var(--bg) 55%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(94vw, 620px);
+      display: grid;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .stat {
+      min-width: 92px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.07);
+      text-align: center;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 18px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    #board {
+      width: calc(var(--cell) * 8 + 14px);
+      max-width: 100%;
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 2px;
+      padding: 7px;
+      border-radius: 8px;
+      background: #0e1219;
+      box-shadow: 0 22px 55px rgba(0,0,0,0.35);
+      touch-action: manipulation;
+      margin: 0 auto;
+    }
+
+    .tile {
+      position: relative;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: inset 0 -7px 0 rgba(0,0,0,0.2), inset 0 3px 0 rgba(255,255,255,0.23);
+      transition: transform 120ms ease, outline-color 120ms ease, opacity 180ms ease;
+      min-width: 0;
+    }
+
+    .tile:hover {
+      transform: translateY(-1px);
+    }
+
+    .tile.selected {
+      outline: 4px solid var(--accent);
+      outline-offset: -4px;
+      transform: scale(0.94);
+    }
+
+    .tile.clearing {
+      opacity: 0;
+      transform: scale(0.2) rotate(12deg);
+    }
+
+    .tile::after {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: rgba(255,255,255,0.92);
+      font-weight: 900;
+      font-size: clamp(18px, 5vw, 28px);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.35);
+    }
+
+    .bomb::after {
+      content: "B";
+    }
+
+    .rainbow::after {
+      content: "R";
+      color: #141820;
+      text-shadow: none;
+    }
+
+    .dynamite::after {
+      content: "+";
+    }
+
+    .red { background: #e84a5f; }
+    .blue { background: #2787d7; }
+    .green { background: #2eb872; }
+    .yellow { background: #f6c85f; }
+    .purple { background: #8e5bd9; }
+    .orange { background: #f28b30; }
+    .rainbow { background: linear-gradient(135deg, #e84a5f, #f6c85f, #2eb872, #2787d7, #8e5bd9); }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+    }
+
+    button.reset {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: var(--accent);
+      color: #071017;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    #message {
+      min-height: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    @media (max-width: 560px) {
+      :root {
+        --cell: calc((94vw - 28px) / 8);
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .stats {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Match-3 Core Playtest</h1>
+      <div class="stats">
+        <div class="stat"><b id="score">0</b><span>Score</span></div>
+        <div class="stat"><b id="moves">25</b><span>Moves</span></div>
+        <div class="stat"><b id="chain">0</b><span>Chain</span></div>
+      </div>
+    </header>
+    <section id="board" aria-label="Match-3 board"></section>
+    <footer>
+      <div id="message">Reach 10,000 before moves run out.</div>
+      <button class="reset" type="button" id="reset">New Game</button>
+    </footer>
+  </main>
+
+  <script>
+    const size = 8;
+    const colors = ["red", "blue", "green", "yellow", "purple", "orange"];
+    const kinds = ["normal", "bomb", "rainbow", "dynamite"];
+    const boardEl = document.querySelector("#board");
+    const scoreEl = document.querySelector("#score");
+    const movesEl = document.querySelector("#moves");
+    const chainEl = document.querySelector("#chain");
+    const messageEl = document.querySelector("#message");
+    const resetEl = document.querySelector("#reset");
+
+    let board = [];
+    let selected = null;
+    let score = 0;
+    let moves = 25;
+    let busy = false;
+    let gameOver = false;
+
+    function randomTile(avoidX = -1, avoidY = -1) {
+      let allowed = [...colors];
+      if (avoidX >= 2 && board[avoidY]?.[avoidX - 1]?.color === board[avoidY]?.[avoidX - 2]?.color) {
+        allowed = allowed.filter(color => color !== board[avoidY][avoidX - 1].color);
+      }
+      if (avoidY >= 2 && board[avoidY - 1]?.[avoidX]?.color === board[avoidY - 2]?.[avoidX]?.color) {
+        allowed = allowed.filter(color => color !== board[avoidY - 1][avoidX].color);
+      }
+      const kindRoll = Math.random();
+      const kind = kindRoll < 0.025 ? kinds[1 + Math.floor(Math.random() * 3)] : "normal";
+      return { color: allowed[Math.floor(Math.random() * allowed.length)], kind };
+    }
+
+    function newGame() {
+      board = [];
+      selected = null;
+      score = 0;
+      moves = 25;
+      busy = false;
+      gameOver = false;
+      for (let y = 0; y < size; y++) {
+        board[y] = [];
+        for (let x = 0; x < size; x++) board[y][x] = randomTile(x, y);
+      }
+      messageEl.textContent = "Reach 10,000 before moves run out.";
+      updateHud();
+      render();
+    }
+
+    function render(clearing = new Set()) {
+      boardEl.innerHTML = "";
+      for (let y = size - 1; y >= 0; y--) {
+        for (let x = 0; x < size; x++) {
+          const tile = board[y][x];
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `tile ${tile.color} ${tile.kind}`;
+          if (selected?.x === x && selected?.y === y) button.classList.add("selected");
+          if (clearing.has(key(x, y))) button.classList.add("clearing");
+          button.setAttribute("aria-label", `${tile.kind} ${tile.color} tile ${x},${y}`);
+          button.addEventListener("click", () => pick(x, y));
+          boardEl.appendChild(button);
+        }
+      }
+    }
+
+    async function pick(x, y) {
+      if (busy || gameOver) return;
+      if (!selected) {
+        selected = { x, y };
+        render();
+        return;
+      }
+      if (selected.x === x && selected.y === y) {
+        selected = null;
+        render();
+        return;
+      }
+      if (Math.abs(selected.x - x) + Math.abs(selected.y - y) !== 1) {
+        selected = { x, y };
+        render();
+        return;
+      }
+      await swapAndResolve(selected, { x, y });
+      selected = null;
+      render();
+    }
+
+    async function swapAndResolve(a, b) {
+      busy = true;
+      swap(a, b);
+      const power = board[a.y][a.x].kind !== "normal" || board[b.y][b.x].kind !== "normal";
+      let matches = findMatches();
+      if (power) matches = union(matches, resolvePowerSwap(a, b));
+      if (matches.size === 0) {
+        swap(a, b);
+        busy = false;
+        return;
+      }
+      moves--;
+      await resolve(matches);
+      updateHud();
+      if (score >= 10000) {
+        gameOver = true;
+        messageEl.textContent = "You win!";
+      } else if (moves <= 0) {
+        gameOver = true;
+        messageEl.textContent = "Out of moves.";
+      }
+      busy = false;
+    }
+
+    async function resolve(matches) {
+      let chain = 0;
+      while (matches.size > 0) {
+        chain++;
+        chainEl.textContent = chain;
+        const expanded = expandPowerUps(matches);
+        score += expanded.size * 100 * chain;
+        render(expanded);
+        await delay(180);
+        clearTiles(expanded);
+        collapse();
+        fill();
+        updateHud();
+        render();
+        await delay(120);
+        matches = findMatches();
+      }
+    }
+
+    function swap(a, b) {
+      [board[a.y][a.x], board[b.y][b.x]] = [board[b.y][b.x], board[a.y][a.x]];
+      render();
+    }
+
+    function findMatches() {
+      const matches = new Set();
+      for (let y = 0; y < size; y++) {
+        let start = 0;
+        for (let x = 1; x <= size; x++) {
+          const same = x < size && canMatch(board[y][start], board[y][x]);
+          if (same) continue;
+          if (x - start >= 3) for (let i = start; i < x; i++) matches.add(key(i, y));
+          start = x;
+        }
+      }
+      for (let x = 0; x < size; x++) {
+        let start = 0;
+        for (let y = 1; y <= size; y++) {
+          const same = y < size && canMatch(board[start][x], board[y][x]);
+          if (same) continue;
+          if (y - start >= 3) for (let i = start; i < y; i++) matches.add(key(x, i));
+          start = y;
+        }
+      }
+      return matches;
+    }
+
+    function canMatch(a, b) {
+      return a && b && a.kind !== "rainbow" && b.kind !== "rainbow" && a.color === b.color;
+    }
+
+    function resolvePowerSwap(a, b) {
+      return union(powerArea(a, board[a.y][a.x], board[b.y][b.x]), powerArea(b, board[b.y][b.x], board[a.y][a.x]));
+    }
+
+    function expandPowerUps(matches) {
+      const expanded = new Set(matches);
+      const queue = [...matches];
+      while (queue.length) {
+        const pos = parseKey(queue.shift());
+        const tile = board[pos.y][pos.x];
+        for (const item of powerArea(pos, tile)) {
+          if (!expanded.has(item)) {
+            expanded.add(item);
+            queue.push(item);
+          }
+        }
+      }
+      return expanded;
+    }
+
+    function powerArea(pos, tile, other = null) {
+      const hits = new Set();
+      if (!tile || tile.kind === "normal") return hits;
+      if (tile.kind === "bomb") {
+        for (let y = pos.y - 1; y <= pos.y + 1; y++) for (let x = pos.x - 1; x <= pos.x + 1; x++) addIfInside(hits, x, y);
+      }
+      if (tile.kind === "dynamite") {
+        for (let x = 0; x < size; x++) hits.add(key(x, pos.y));
+        for (let y = 0; y < size; y++) hits.add(key(pos.x, y));
+      }
+      if (tile.kind === "rainbow") {
+        const target = other?.color || tile.color;
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (board[y][x].color === target) hits.add(key(x, y));
+        hits.add(key(pos.x, pos.y));
+      }
+      return hits;
+    }
+
+    function clearTiles(matches) {
+      for (const item of matches) {
+        const { x, y } = parseKey(item);
+        board[y][x] = null;
+      }
+    }
+
+    function collapse() {
+      for (let x = 0; x < size; x++) {
+        const remaining = [];
+        for (let y = 0; y < size; y++) if (board[y][x]) remaining.push(board[y][x]);
+        for (let y = 0; y < size; y++) board[y][x] = remaining[y] || null;
+      }
+    }
+
+    function fill() {
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!board[y][x]) board[y][x] = randomTile();
+    }
+
+    function updateHud() {
+      scoreEl.textContent = score;
+      movesEl.textContent = moves;
+    }
+
+    function addIfInside(set, x, y) {
+      if (x >= 0 && x < size && y >= 0 && y < size) set.add(key(x, y));
+    }
+
+    function union(...sets) {
+      const result = new Set();
+      for (const set of sets) for (const item of set) result.add(item);
+      return result;
+    }
+
+    function key(x, y) {
+      return `${x},${y}`;
+    }
+
+    function parseKey(value) {
+      const [x, y] = value.split(",").map(Number);
+      return { x, y };
+    }
+
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    resetEl.addEventListener("click", newGame);
+    newGame();
+  </script>
+</body>
+</html>
